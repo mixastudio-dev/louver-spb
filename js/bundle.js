@@ -268,6 +268,330 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
+document.addEventListener('DOMContentLoaded', function() {
+
+  const tabsBlocks = document.querySelectorAll('.tabs-block');
+
+  tabsBlocks.forEach(block => {
+    const tabButtons = block.querySelectorAll('.tab-button');
+    const tabPanels = block.querySelectorAll('.tab-panel');
+    const panelsContainer = block.querySelector('.tab-panels');
+
+    if (panelsContainer) {
+      panelsContainer.style.position = 'relative';
+      panelsContainer.style.minHeight = '400px';
+    }
+
+    tabPanels.forEach(panel => {
+      panel.style.position = 'absolute';
+      panel.style.top = '0';
+      panel.style.left = '0';
+      panel.style.width = '100%';
+      panel.style.opacity = '0';
+      panel.style.visibility = 'hidden';
+      panel.style.transition = 'opacity 0.3s ease, visibility 0.3s ease';
+      panel.style.pointerEvents = 'none';
+    });
+
+    function updateContainerHeight(panel) {
+      if (!panelsContainer) return;
+
+      const originalDisplay = panel.style.display;
+      const originalVisibility = panel.style.visibility;
+      const originalOpacity = panel.style.opacity;
+      const originalPosition = panel.style.position;
+
+      panel.style.position = 'relative';
+      panel.style.visibility = 'visible';
+      panel.style.opacity = '1';
+      panel.style.display = 'block';
+
+      const height = panel.offsetHeight;
+
+      panel.style.position = originalPosition;
+      panel.style.visibility = originalVisibility;
+      panel.style.opacity = originalOpacity;
+      panel.style.display = originalDisplay;
+
+      panelsContainer.style.height = height + 'px';
+    }
+
+    function switchTab(tabId) {
+      tabButtons.forEach(btn => btn.classList.remove('active'));
+
+      const activeBtn = block.querySelector(`.tab-button[data-tab-id="${tabId}"]`);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      tabPanels.forEach(panel => {
+        panel.style.visibility = 'hidden';
+        panel.style.opacity = '0';
+        panel.style.pointerEvents = 'none';
+      });
+
+      const activePanel = block.querySelector(`.tab-panel[data-tab-id="${tabId}"]`);
+      if (activePanel) {
+        updateContainerHeight(activePanel);
+
+        activePanel.style.visibility = 'visible';
+        activePanel.style.opacity = '1';
+        activePanel.style.pointerEvents = 'auto';
+      }
+    }
+
+    tabButtons.forEach(button => {
+      button.addEventListener('click', function(e) {
+        e.preventDefault();
+        const tabId = this.getAttribute('data-tab-id');
+        switchTab(tabId);
+      });
+    });
+
+    if (tabButtons.length > 0) {
+      const firstPanel = block.querySelector('.tab-panel[data-tab-id="1"]');
+      if (firstPanel && panelsContainer) {
+        setTimeout(() => {
+          panelsContainer.style.height = firstPanel.offsetHeight + 'px';
+        }, 100);
+      }
+
+      setTimeout(() => {
+        switchTab('1');
+      }, 150);
+    }
+  });
+
+  window.addEventListener('resize', function() {
+    tabsBlocks.forEach(block => {
+      const tabPanels = block.querySelectorAll('.tab-panel');
+      const panelsContainer = block.querySelector('.tab-panels');
+
+      const activePanel = Array.from(tabPanels).find(panel =>
+          panel.style.visibility === 'visible'
+      );
+
+      if (activePanel && panelsContainer) {
+        const originalDisplay = activePanel.style.display;
+        const originalVisibility = activePanel.style.visibility;
+        const originalOpacity = activePanel.style.opacity;
+        const originalPosition = activePanel.style.position;
+
+        activePanel.style.position = 'relative';
+        activePanel.style.visibility = 'visible';
+        activePanel.style.opacity = '1';
+        activePanel.style.display = 'block';
+
+        panelsContainer.style.height = activePanel.offsetHeight + 'px';
+
+        activePanel.style.position = originalPosition;
+        activePanel.style.visibility = originalVisibility;
+        activePanel.style.opacity = originalOpacity;
+        activePanel.style.display = originalDisplay;
+      }
+    });
+  });
+
+});
+
+class CustomVideoPlayer {
+  constructor(container) {
+    this.container = container;
+    this.video = container.querySelector('video');
+    this.playButton = container.querySelector('.btn-play');
+
+    if (!this.video || !this.playButton) return;
+
+    this.init();
+  }
+
+  init() {
+    this.video.removeAttribute('controls');
+    this.video.setAttribute('playsinline', '');
+    this.video.setAttribute('webkit-playsinline', '');
+    this.video.setAttribute('preload', 'metadata');
+    this.video.muted = true;
+
+    this.poster = this.video.getAttribute('poster');
+
+    if (!this.poster) {
+      this.showPlayButton();
+    } else {
+      this.video.addEventListener('loadeddata', () => {
+        this.showPlayButton();
+      });
+    }
+
+    this.bindEvents();
+  }
+
+  showPlayButton() {
+    this.playButton.style.transition = 'opacity 0.3s ease';
+    this.playButton.style.pointerEvents = 'auto';
+  }
+
+  bindEvents() {
+    this.container.addEventListener('click', (e) => {
+      e.stopPropagation();
+
+      if (this.video.readyState === 0) {
+        this.video.load();
+        this.showPlayButton();
+        return;
+      }
+
+      this.toggleVideo(e);
+    });
+
+    this.playButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleVideo(e);
+    });
+
+    this.video.addEventListener('play', () => this.onPlay());
+    this.video.addEventListener('pause', () => this.onPause());
+    this.video.addEventListener('ended', () => this.onEnded());
+
+    this.video.addEventListener('error', () => {
+      console.log('Ошибка загрузки видео');
+      this.container.style.background = '#f0f0f0';
+      this.playButton.style.display = 'flex';
+    });
+  }
+
+  toggleVideo(e) {
+    e.stopPropagation();
+
+    if (this.video.paused) {
+      this.play();
+    } else {
+      this.pause();
+    }
+  }
+
+  play() {
+    if (this.video.paused) {
+      this.video.muted = true;
+
+      const playPromise = this.video.play();
+
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.log('Видео не может быть воспроизведено автоматически');
+          this.video.setAttribute('controls', '');
+          this.playButton.style.display = 'none';
+        });
+      }
+    }
+  }
+
+  pause() {
+    if (!this.video.paused) {
+      this.video.pause();
+    }
+  }
+
+  onPlay() {
+    this.playButton.style.opacity = '0';
+    this.playButton.style.pointerEvents = 'none';
+  }
+
+  onPause() {
+    this.playButton.style.opacity = '1';
+    this.playButton.style.pointerEvents = 'auto';
+  }
+
+  onEnded() {
+    this.playButton.style.opacity = '1';
+    this.playButton.style.pointerEvents = 'auto';
+    this.video.currentTime = 0;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const videoCards = document.querySelectorAll('.media-wrapper');
+
+  videoCards.forEach(container => {
+    new CustomVideoPlayer(container);
+  });
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  const section = document.querySelector('.category-gallery-section');
+
+  if (!section) return;
+
+  let isDragging = false;
+  let startX = 0;
+  let startScrollLeft = 0;
+  let momentum = 0;
+  let animationId = null;
+
+  section.style.cursor = 'grab';
+
+  section.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    section.style.cursor = 'grabbing';
+    startX = e.pageX;
+    startScrollLeft = section.scrollLeft;
+    momentum = 0;
+
+    if (animationId) {
+      cancelAnimationFrame(animationId);
+      animationId = null;
+    }
+
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+
+    const dx = e.pageX - startX;
+    section.scrollLeft = startScrollLeft - dx;
+    momentum = e.movementX * 2;
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!isDragging) return;
+
+    isDragging = false;
+    section.style.cursor = 'grab';
+
+    if (Math.abs(momentum) > 1) {
+      let velocity = momentum;
+
+      function inertia() {
+
+        const maxScroll = section.scrollWidth - section.clientWidth;
+
+        if (Math.abs(velocity) > 0.5) {
+          section.scrollLeft -= velocity;
+          velocity *= 0.95;
+
+          if (section.scrollLeft <= 0 || section.scrollLeft >= maxScroll) {
+            section.scrollLeft = Math.max(0, Math.min(section.scrollLeft, maxScroll));
+            return;
+          }
+
+          animationId = requestAnimationFrame(inertia);
+        }
+      }
+
+      animationId = requestAnimationFrame(inertia);
+    }
+  });
+
+  section.addEventListener('selectstart', (e) => {
+    if (isDragging) e.preventDefault();
+  });
+
+  window.addEventListener('mouseleave', () => {
+    if (isDragging) {
+      isDragging = false;
+      section.style.cursor = 'grab';
+    }
+  });
+});
+
 var swiper1 = new Swiper(".directions-slider", {
   observer: true,
   observeParents: true,
@@ -406,3 +730,64 @@ var swiper3 = new Swiper(".process-slider", {
   }
 });
 
+var swiper4 = new Swiper(".category-variables-slider", {
+  observer: true,
+  observeParents: true,
+  observeSlideChildren: true,
+  watchSlidesProgress: true,
+  simulateTouch: true,
+  grabCursor: true,
+  pagination: {
+    el: ".category-variables-slider .swiper-progressbar",
+    type: "progressbar",
+  },
+  navigation: {
+    nextEl: ".category-variables-section .swiper-button-next",
+    prevEl: ".category-variables-section .swiper-button-prev",
+  },
+  breakpoints: {
+    0: {
+      slidesPerView: 1.51,
+      spaceBetween: 10,
+      mousewheel: {
+        enabled: false,
+      },
+    },
+    601: {
+      slidesPerView: 2.2,
+      spaceBetween: 20,
+      mousewheel: {
+        enabled: false,
+      },
+    },
+    1024: {
+      slidesPerView: 1.4,
+      spaceBetween: 20,
+    },
+  }
+});
+
+var swiper5 = new Swiper(".control-slider", {
+  observer: true,
+  observeParents: true,
+  observeSlideChildren: true,
+  watchSlidesProgress: true,
+  simulateTouch: true,
+  grabCursor: true,
+  direction: "vertical",
+  mousewheel: true,
+  breakpoints: {
+    0: {
+      slidesPerView: 1,
+      spaceBetween: 0,
+    },
+    601: {
+      slidesPerView: 1,
+      spaceBetween: 0,
+    },
+    1024: {
+      slidesPerView: 1,
+      spaceBetween: 0,
+    },
+  }
+});
